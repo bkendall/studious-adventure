@@ -6,6 +6,8 @@ variable "secret_key" {
   default = ""
 }
 
+variable "ansible_vault_password" {}
+
 variable "region" {
   default = "us-west-1"
 }
@@ -29,9 +31,9 @@ variable "instance_size" {
   }
 }
 
-variable "ubuntu_amis" {
+variable "nomad_amis" {
   default = {
-    us-west-1 = "ami-06116566"
+    us-west-1 = "ami-02f38f62"
   }
 }
 
@@ -123,7 +125,7 @@ resource "aws_route" "private" {
 # INSTANCES
 
 resource "aws_instance" "nomad_master" {
-  ami = "${lookup(var.ubuntu_amis, var.region)}"
+  ami = "${lookup(var.nomad_amis, var.region)}"
   instance_type = "${var.instance_size.master}"
   key_name = "bryan-vpc"
   count = "${var.master_servers}"
@@ -136,10 +138,18 @@ resource "aws_instance" "nomad_master" {
   root_block_device {
     volume_size = 50
   }
+  provisioner "remote-exec" {
+    inline = [
+      "git clone https://github.com/bkendall/ideal-umbrella",
+      "echo \"${var.ansible_vault_password}\" > ideal-umbrella/ansible/vault-pass.txt",
+      "cd ideal-umbrella/ansible && ansible-playbook -e @secure-vars.yml --vault-password-file vault-pass.txt nomad-master.yml",
+      "shred --remove ideal-umbrella/ansible/vault-pass.txt"
+    ]
+  }
 }
 
 resource "aws_instance" "nomad_slave" {
-  ami = "${lookup(var.ubuntu_amis, var.region)}"
+  ami = "${lookup(var.nomad_amis, var.region)}"
   instance_type = "${var.instance_size.worker}"
   key_name = "bryan-vpc"
   count = "${var.slave_servers}"
@@ -151,6 +161,14 @@ resource "aws_instance" "nomad_slave" {
   subnet_id = "${aws_subnet.bryan_private.id}"
   root_block_device {
     volume_size = 500
+  }
+  provisioner "remote-exec" {
+    inline = [
+      "git clone https://github.com/bkendall/ideal-umbrella",
+      "echo \"${var.ansible_vault_password}\" > ideal-umbrella/ansible/vault-pass.txt",
+      "cd ideal-umbrella/ansible && ansible-playbook -e @secure-vars.yml --vault-password-file vault-pass.txt nomad-slave.yml",
+      "shred --remove ideal-umbrella/ansible/vault-pass.txt"
+    ]
   }
 }
 
