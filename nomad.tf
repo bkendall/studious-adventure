@@ -154,6 +154,7 @@ resource "aws_instance" "nomad_master" {
     "${aws_security_group.nomad_master.id}"
   ]
   subnet_id = "${aws_subnet.bryan_public.id}"
+  associate_public_ip_address = true
   root_block_device {
     volume_size = 50
   }
@@ -182,7 +183,6 @@ resource "aws_instance" "nomad_slave" {
   key_name = "bryan-vpc"
   count = "${var.slave_servers}"
   availability_zone = "${var.az}"
-  associate_public_ip_address = true
   vpc_security_group_ids = [
     "${aws_security_group.nomad.id}",
     "${aws_security_group.nomad_slave.id}"
