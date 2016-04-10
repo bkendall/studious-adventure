@@ -172,9 +172,10 @@ resource "aws_instance" "nomad_master" {
     inline = [
       "sleep 30",
       "git clone https://github.com/bkendall/ideal-umbrella",
-      "echo \"${var.ansible_vault_password}\" > ideal-umbrella/ansible/vault-pass.txt",
-      "cd ideal-umbrella/ansible && ansible-playbook -e @secure-vars.yml --vault-password-file vault-pass.txt nomad-master.yml",
-      "shred --remove ideal-umbrella/ansible/vault-pass.txt"
+      "cd ideal-umbrella/ansible",
+      "echo \"${var.ansible_vault_password}\" > vault-pass.txt",
+      "ansible-playbook -e @secure-vars.yml --vault-password-file vault-pass.txt nomad-master.yml",
+      "shred --remove vault-pass.txt"
     ]
   }
 }
@@ -206,9 +207,10 @@ resource "aws_instance" "nomad_slave" {
     inline = [
       "sleep 30",
       "git clone https://github.com/bkendall/ideal-umbrella",
-      "echo \"${var.ansible_vault_password}\" > ideal-umbrella/ansible/vault-pass.txt",
-      "cd ideal-umbrella/ansible && ansible-playbook -e @secure-vars.yml --vault-password-file vault-pass.txt nomad-slave.yml",
-      "shred --remove ideal-umbrella/ansible/vault-pass.txt"
+      "cd ideal-umbrella/ansible",
+      "echo \"${var.ansible_vault_password}\" > vault-pass.txt",
+      "ansible-playbook -e @secure-vars.yml --vault-password-file vault-pass.txt nomad-slave.yml",
+      "shred --remove vault-pass.txt"
     ]
   }
 }
