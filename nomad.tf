@@ -126,6 +126,23 @@ resource "aws_route" "private" {
 
 # INSTANCES
 
+resource "aws_instance" "nomad_bastion" {
+  ami = "ami-06116566"
+  instance_type = "t2.small"
+  key_name = "bryan-vpc"
+  availability_zone = "${var.az}"
+  vpc_security_group_ids = [
+    "${aws_security_group.nomad.id}",
+    "${aws_security_group.nomad_bastion.id}",
+  ]
+  subnet_id = "${aws_subnet.bryan_public.id}"
+}
+
+resource "aws_eip" "bastion" {
+  instance = "${aws_instance.nomad_bastion.id}"
+  vpc = true
+}
+
 resource "aws_instance" "nomad_master" {
   ami = "${lookup(var.nomad_amis, var.region)}"
   instance_type = "${var.instance_size.master}"
@@ -140,12 +157,15 @@ resource "aws_instance" "nomad_master" {
   root_block_device {
     volume_size = 50
   }
+  depends_on = [
+    "aws_instance.nomad_bastion"
+  ]
   provisioner "remote-exec" {
     connection {
       type = "ssh"
       user = "ubuntu"
-      host = "${element(aws_eip.ip.*.public_ip, count.index)}"
       private_key = "${var.provision_private_key_content}"
+      bastion_host = "${aws_eip.bastion.public_ip}"
     }
     inline = [
       "git clone https://github.com/bkendall/ideal-umbrella",
@@ -170,12 +190,15 @@ resource "aws_instance" "nomad_slave" {
   root_block_device {
     volume_size = 500
   }
+  depends_on = [
+    "aws_instance.nomad_bastion"
+  ]
   provisioner "remote-exec" {
     connection {
       type = "ssh"
       user = "ubuntu"
       private_key = "${var.provision_private_key_content}"
-      bastion_host = "${element(aws_eip.ip.*.public_ip, count.index)}"
+      bastion_host = "${aws_eip.bastion.public_ip}"
     }
     inline = [
       "git clone https://github.com/bkendall/ideal-umbrella",
@@ -194,7 +217,6 @@ resource "aws_eip" "ip" {
 
 # SECURITY GROUPS
 
-# `nomad`
 resource "aws_security_group" "nomad" {
   name = "nomad"
   description = "nomad general security group"
@@ -249,6 +271,34 @@ resource "aws_security_group_rule" "consul_serf_lan_udp" {
   source_security_group_id = "${aws_security_group.nomad.id}"
 }
 
+resource "aws_security_group_rule" "nomad_ssh" {
+  security_group_id = "${aws_security_group.nomad.id}"
+  type = "ingress"
+  protocol = "tcp"
+  from_port = 22
+  to_port = 22
+  source_security_group_id = "${aws_security_group.nomad.id}"
+}
+
+
+resource "aws_security_group" "nomad_bastion" {
+  name = "nomad"
+  description = "nomad bastion security group"
+  vpc_id = "${aws_vpc.bryan_vpc.id}"
+  tags {
+    Name = "nomad bastion"
+  }
+}
+
+resource "aws_security_group_rule" "nomad_bastion_ssh" {
+  security_group_id = "${aws_security_group.nomad_bastion.id}"
+  type = "ingress"
+  protocol = "tcp"
+  from_port = 22
+  to_port = 22
+  cidr_blocks = ["0.0.0.0/0"]
+}
+
 resource "aws_security_group" "nomad_master" {
   name = "nomad-master"
   description = "nomad master sg"
@@ -265,15 +315,6 @@ resource "aws_security_group_rule" "consul_server_rpc" {
   to_port = 8300
   protocol = "tcp"
   source_security_group_id = "${aws_security_group.nomad.id}"
-}
-
-resource "aws_security_group_rule" "nomad_ssh" {
-  security_group_id = "${aws_security_group.nomad_master.id}"
-  type = "ingress"
-  protocol = "tcp"
-  from_port = 22
-  to_port = 22
-  cidr_blocks = ["0.0.0.0/0"]
 }
 
 resource "aws_security_group_rule" "nomad_rpc" {
