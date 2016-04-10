@@ -8,6 +8,8 @@ variable "secret_key" {
 
 variable "ansible_vault_password" {}
 
+variable "provision_private_key_content" {}
+
 variable "region" {
   default = "us-west-1"
 }
@@ -139,6 +141,9 @@ resource "aws_instance" "nomad_master" {
     volume_size = 50
   }
   provisioner "remote-exec" {
+    connection = "ssh"
+    user = "ubuntu"
+    private_key = "${var.provision_private_key_content}"
     inline = [
       "git clone https://github.com/bkendall/ideal-umbrella",
       "echo \"${var.ansible_vault_password}\" > ideal-umbrella/ansible/vault-pass.txt",
@@ -163,6 +168,10 @@ resource "aws_instance" "nomad_slave" {
     volume_size = 500
   }
   provisioner "remote-exec" {
+    connection = "ssh"
+    user = "ubuntu"
+    private_key = "${var.provision_private_key_content}"
+    bastion_host = "${aws_eip.ip.public_ip}"
     inline = [
       "git clone https://github.com/bkendall/ideal-umbrella",
       "echo \"${var.ansible_vault_password}\" > ideal-umbrella/ansible/vault-pass.txt",
