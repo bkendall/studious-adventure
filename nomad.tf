@@ -143,11 +143,11 @@ resource "aws_eip" "bastion" {
   vpc = true
 }
 
-resource "aws_instance" "nomad_master" {
+resource "aws_instance" "nomad_master_bootstrap" {
   ami = "${lookup(var.nomad_amis, var.region)}"
   instance_type = "${var.instance_size.master}"
   key_name = "bryan-vpc"
-  count = "${var.master_servers}"
+  count = 1
   availability_zone = "${var.az}"
   vpc_security_group_ids = [
     "${aws_security_group.nomad.id}",
@@ -157,6 +157,9 @@ resource "aws_instance" "nomad_master" {
   associate_public_ip_address = true
   root_block_device {
     volume_size = 50
+  }
+  tags {
+    Name = "nomad-master-bootstrap"
   }
   depends_on = [
     "aws_instance.nomad_bastion"
@@ -175,6 +178,46 @@ resource "aws_instance" "nomad_master" {
       "cd ideal-umbrella/ansible",
       "echo \"${var.ansible_vault_password}\" > vault-pass.txt",
       "ansible-playbook -e @secure-vars.yml --vault-password-file vault-pass.txt nomad-master.yml",
+      "shred --remove vault-pass.txt"
+    ]
+  }
+}
+
+resource "aws_instance" "nomad_master" {
+  ami = "${lookup(var.nomad_amis, var.region)}"
+  instance_type = "${var.instance_size.master}"
+  key_name = "bryan-vpc"
+  count = "${var.master_servers - 1}"
+  availability_zone = "${var.az}"
+  vpc_security_group_ids = [
+    "${aws_security_group.nomad.id}",
+    "${aws_security_group.nomad_master.id}"
+  ]
+  subnet_id = "${aws_subnet.bryan_public.id}"
+  associate_public_ip_address = true
+  root_block_device {
+    volume_size = 50
+  }
+  tags {
+    Name = "nomad-master-${count.index}"
+  }
+  depends_on = [
+    "aws_instance.nomad_bastion"
+  ]
+  provisioner "remote-exec" {
+    connection {
+      type = "ssh"
+      user = "ubuntu"
+      host = "${self.private_ip}"
+      private_key = "${var.provision_private_key_content}"
+      bastion_host = "${aws_eip.bastion.public_ip}"
+    }
+    inline = [
+      "sleep 30",
+      "git clone https://github.com/bkendall/ideal-umbrella",
+      "cd ideal-umbrella/ansible",
+      "echo \"${var.ansible_vault_password}\" > vault-pass.txt",
+      "ansible-playbook -e nomad_master_bootstrap_server_ip=\"${aws_instance.nomad_master_bootstrap.private_ip}\" -e @secure-vars.yml --vault-password-file vault-pass.txt nomad-master.yml",
       "shred --remove vault-pass.txt"
     ]
   }
@@ -209,7 +252,7 @@ resource "aws_instance" "nomad_slave" {
       "git clone https://github.com/bkendall/ideal-umbrella",
       "cd ideal-umbrella/ansible",
       "echo \"${var.ansible_vault_password}\" > vault-pass.txt",
-      "ansible-playbook -e @secure-vars.yml --vault-password-file vault-pass.txt nomad-slave.yml",
+      "ansible-playbook -e nomad_master_server_ips=\"${join(\",\", aws_instance.nomad_master.*.private_ip)}\" -e @secure-vars.yml --vault-password-file vault-pass.txt nomad-slave.yml",
       "shred --remove vault-pass.txt"
     ]
   }
@@ -354,6 +397,18 @@ resource "aws_security_group_rule" "nomad_ssh_slave" {
 }
 
 # OUTPUTS
+
+output "bootstrap_master_ids" {
+  value = "${join(",", aws_instance.nomad_master_bootstrap.*.id)}"
+}
+
+output "bootstrap_master_ips" {
+  value = "${join(",", aws_instance.nomad_master_bootstrap.*.public_ip)}"
+}
+
+output "bootstrap_master_private_ips" {
+  value = "${join(",", aws_instance.nomad_master_bootstrap.*.private_ip)}"
+}
 
 output "master_ids" {
   value = "${join(",", aws_instance.nomad_master.*.id)}"
