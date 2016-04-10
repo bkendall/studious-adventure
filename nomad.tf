@@ -169,6 +169,7 @@ resource "aws_instance" "nomad_master" {
       bastion_host = "${aws_eip.bastion.public_ip}"
     }
     inline = [
+      "sleep 30",
       "git clone https://github.com/bkendall/ideal-umbrella",
       "echo \"${var.ansible_vault_password}\" > ideal-umbrella/ansible/vault-pass.txt",
       "cd ideal-umbrella/ansible && ansible-playbook -e @secure-vars.yml --vault-password-file vault-pass.txt nomad-master.yml",
@@ -202,6 +203,7 @@ resource "aws_instance" "nomad_slave" {
       bastion_host = "${aws_eip.bastion.public_ip}"
     }
     inline = [
+      "sleep 30",
       "git clone https://github.com/bkendall/ideal-umbrella",
       "echo \"${var.ansible_vault_password}\" > ideal-umbrella/ansible/vault-pass.txt",
       "cd ideal-umbrella/ansible && ansible-playbook -e @secure-vars.yml --vault-password-file vault-pass.txt nomad-slave.yml",
