@@ -144,6 +144,7 @@ resource "aws_instance" "nomad_master" {
     connection {
       type = "ssh"
       user = "ubuntu"
+      host = "${element(aws_eip.ip.*.public_ip, count.index)}"
       private_key = "${var.provision_private_key_content}"
     }
     inline = [
@@ -174,7 +175,7 @@ resource "aws_instance" "nomad_slave" {
       type = "ssh"
       user = "ubuntu"
       private_key = "${var.provision_private_key_content}"
-      bastion_host = "${aws_eip.ip.public_ip}"
+      bastion_host = "${element(aws_eip.ip.*.public_ip, count.index)}"
     }
     inline = [
       "git clone https://github.com/bkendall/ideal-umbrella",
