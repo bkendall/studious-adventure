@@ -182,6 +182,7 @@ resource "aws_instance" "nomad_slave" {
   key_name = "bryan-vpc"
   count = "${var.slave_servers}"
   availability_zone = "${var.az}"
+  associate_public_ip_address = true
   vpc_security_group_ids = [
     "${aws_security_group.nomad.id}",
     "${aws_security_group.nomad_slave.id}"
@@ -207,12 +208,6 @@ resource "aws_instance" "nomad_slave" {
       "shred --remove ideal-umbrella/ansible/vault-pass.txt"
     ]
   }
-}
-
-resource "aws_eip" "ip" {
-  count = "${var.master_servers}"
-  instance = "${element(aws_instance.nomad_master.*.id, count.index)}"
-  vpc = true
 }
 
 # SECURITY GROUPS
@@ -360,7 +355,7 @@ output "master_ids" {
 }
 
 output "master_ips" {
-  value = "${join(",", aws_eip.ip.*.public_ip)}"
+  value = "${join(",", aws_instance.nomad_master.*.public_ip)}"
 }
 
 output "master_private_ips" {
