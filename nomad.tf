@@ -165,6 +165,7 @@ resource "aws_instance" "nomad_master" {
     connection {
       type = "ssh"
       user = "ubuntu"
+      host = "${self.private_ip}"
       private_key = "${var.provision_private_key_content}"
       bastion_host = "${aws_eip.bastion.public_ip}"
     }
