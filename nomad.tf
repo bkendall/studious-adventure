@@ -282,7 +282,7 @@ resource "aws_security_group_rule" "nomad_ssh" {
 
 
 resource "aws_security_group" "nomad_bastion" {
-  name = "nomad"
+  name = "nomad bastion"
   description = "nomad bastion security group"
   vpc_id = "${aws_vpc.bryan_vpc.id}"
   tags {
